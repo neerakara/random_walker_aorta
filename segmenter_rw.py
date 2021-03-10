@@ -1,7 +1,3 @@
-# Use the RW algorithm to segment in 3D at one time point
-# Make the segmentation slightly larger and extend it to all other time points
-# Save the segmentated image using the hpc-predict-io classes
-
 # ============================   
 # import module and set paths
 # ============================   
