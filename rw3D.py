@@ -1,16 +1,6 @@
-# -*- coding: utf-8 -*-
 """
-Created on Mon Apr  8 12:44:59 2019
-
-@author: nblon
-"""
-
-"""
-Random walker segmentation algorithm
-from *Random walks for image segmentation*, Leo Grady, IEEE Trans
-Pattern Anal Mach Intell. 2006 Nov;28(11):1768-83.
-Installing pyamg and using the 'cg_mg' mode of random_walker improves
-significantly the performance.
+Random walker segmentation algorithm from *Random walks for image segmentation*, Leo Grady, IEEE Trans Pattern 2006 Nov;28(11):1768-83.
+Installing pyamg and using the 'cg_mg' mode of random_walker improves significantly the performance.
 """
 
 import numpy as np
@@ -18,9 +8,7 @@ from scipy import sparse, ndimage as ndi
 from skimage._shared.utils import warn
 import utils
 
-
-# executive summary for next code block: try to import umfpack from
-# scipy, but make sure not to raise a fuss if it fails since it's only
+# executive summary for next code block: try to import umfpack from scipy, but make sure not to raise a fuss if it fails since it's only
 # needed to speed up a few cases.
 # See discussions at:
 # https://groups.google.com/d/msg/scikit-image/FrM5IGP6wh4/1hp-FtVZmfcJ
@@ -49,8 +37,6 @@ from skimage.util import img_as_float
 from skimage.filters import rank_order
 
 #-----------Laplacian--------------------
-
-
 def _make_graph_edges_3d(n_x, n_y, n_z):
     """Returns a list of edges for a 3D image.
     Parameters
@@ -82,7 +68,6 @@ def _make_graph_edges_3d(n_x, n_y, n_z):
 #    print(k)
 #    print(j)
     return edges
-
 
 def _compute_weights_3d(data, spacing, eps=1.e-6,alpha=0.3, beta =0.3, gamma=0.4, a=130.0, b=10.0, c=800.0):
 
