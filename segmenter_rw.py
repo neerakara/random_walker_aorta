@@ -259,7 +259,10 @@ class MainWindow():
             
         return
 
-    # ---------------------------------------------------------------              
+    # ---------------------------------------------------------------   
+    # The 3D segmentation should have been done satisfactorily at one time instance. 
+    # This segmentation would then have been eroded and extended to all other time points.
+    # This provides a band in between the foreground and the background, where the segmentation is done in 3D for each time point separately.           
     # ---------------------------------------------------------------                 
     def run_random_walker4D3D(self):
 
@@ -287,7 +290,11 @@ class MainWindow():
         
         return
     
-    # ---------------------------------------------------------------              
+    # ---------------------------------------------------------------   
+    # The 3D segmentation should have been done satisfactorily at one time instance. 
+    # This segmentation would then have been eroded and extended to all other time points.
+    # This provides a band in between the foreground and the background, where the segmentation is done in 4D.   
+    # (For some reason, this is causing NaNs in the predictions. Therefore, using run_random_walker4D3D for now.)        
     # ---------------------------------------------------------------                 
     def run_random_walker4D(self):
 
