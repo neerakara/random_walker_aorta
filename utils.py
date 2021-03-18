@@ -1,5 +1,7 @@
 import numpy as np
 from scipy.ndimage import gaussian_filter
+import scipy.ndimage.morphology as morph
+import skimage.morphology as mp
 
 # function to normalize the input arrays (intensity and velocity) to a range between 0 to 1 and -1 to 1
 # magnitude normalization is a simple division by the largest value
@@ -37,3 +39,28 @@ def normalize_arrays(arrays):
 def norm(x,y,z):
     normed_array = np.sqrt(np.square(x)+np.square(y)+np.square(z))
     return normed_array 
+
+# closing operation for postprocessing the segmentation to remove holes from the inside to avoid wrong seeds if used for 4D initialization
+# takes a 3D volume and returns a 3D volume where every slice is eroded with a "circular" 3x3 kernel
+# the rw data is then eroded and diluted and markers are assigned to the two classes, no markers are placed in the overlap so that the RW algorithm can fill these gaps
+def erode_segmentation(labels_3d):
+    
+    kernel = np.array([[[0, 0, 0], [0, 1, 0], [0, 0, 0]],
+                      [[0, 1, 0], [1, 1, 1], [0, 1, 0]],
+                      [[0, 0, 0], [0, 1, 0], [0, 0, 0]]], dtype=bool)
+    
+    labels_3d_binary = np.array(labels_3d, dtype=bool)
+    
+    closed_seg = morph.binary_closing(labels_3d_binary, structure = kernel)    
+    
+    eroded_seg = np.zeros(labels_3d.shape)
+    for i in range(labels_3d.shape[2]):
+        eroded_seg[:, :, i] = mp.thin(closed_seg[:, :, i], max_iter = 3)
+    dilated_seg = morph.binary_dilation(closed_seg, structure = kernel, iterations = 3)
+           
+    markers = np.zeros(labels_3d.shape)
+    fg_markers = (np.logical_and(eroded_seg, dilated_seg)) * 1
+    bg_markers = (np.logical_and(np.logical_not(markers), np.logical_not(dilated_seg))) * 2
+    markers = fg_markers + bg_markers
+    
+    return markers

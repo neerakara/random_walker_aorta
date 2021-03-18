@@ -12,15 +12,13 @@ import tkinter as tki
 from PIL import Image, ImageTk
 import utils
 import rw3D
+import rw4D
 
-basepath = '/usr/bmicnas01/data-biwi-01/nkarani/projects/hpc_predict/code/hpc-predict/'
-basepath = basepath + 'data/v1/decrypt/flownet/hpc_predict/v2/inference/'
-basepath = '/tmp/test.decrypt7/flownet/hpc_predict/v2/inference/'
-basepath = basepath + '2021-02-11_19-41-32_daint102'
+basepath_image = '/tmp/test.decrypt7/flownet/hpc_predict/v2/inference/2021-02-11_19-41-32_daint102'
+# basepath_seg = '/tmp/test.decrypt7/segmenter/cnn_segmenter/hpc_predict/v1/inference/2021-02-11_19-41-32_daint102'
 subnum = 3 # 1/2/3/4/5/6/7
-subject_specific_basepath = basepath + '_volN' + str(subnum) + '/output/recon_volN' + str(subnum)
-flowmripath = subject_specific_basepath + '_vn.mat.h5'
-segmentedflowmripath = subject_specific_basepath + '_vn_seg_rw.h5'
+flowmripath = basepath_image + '_volN' + str(subnum) + '/output/recon_volN' + str(subnum) + '_vn.mat.h5'
+segmentedflowmripath = basepath_image + '_volN' + str(subnum) + '/output/recon_volN' + str(subnum) + '_vn_seg_rw.h5'
 
 # ============================   
 # Interactive segmentation tool for 4D MRI Flow Images
@@ -68,6 +66,7 @@ class MainWindow():
     fg_list_2d = []
     bg_list_2d = []
     markers_3d = np.zeros((flowMRI_image.shape[0], flowMRI_image.shape[1], flowMRI_image.shape[2]))
+    markers_4d = np.zeros((flowMRI_image.shape[0], flowMRI_image.shape[1], flowMRI_image.shape[2], flowMRI_image.shape[3]))
     
     # This array will contain the segmentation predicted by the algorithm
     rw_labels = np.zeros((flowMRI_image.shape[0], flowMRI_image.shape[1], flowMRI_image.shape[2], flowMRI_image.shape[3]))
@@ -245,16 +244,74 @@ class MainWindow():
                                          b = b,
                                          c = c)        
 
-        # If required later, extend the segmentation a bit, so that it includes the aorta at all time points
-        # self.eroded_markers3D, self.fg_markers, self.bg_markers = pl.erode_seg_markers(np.round(self.rw_labels3D[0,:,:,:]))
+        # Extend the segmentation a bit, so that it includes the aorta at all time points
+        eroded_labels3D = utils.erode_segmentation(np.round(rw_labels3D[0, :, :, :]))
+        print(eroded_labels3D.shape)
+        print(self.markers_4d.shape)
         
-        # now, the markers to all other z-slices and t-instances
+        # now, extend the 3D segmentation at this time instant to all time instances
         for tt in range(self.t_size):
             self.rw_labels[:, :, :, tt] = rw_labels3D[0, :, :, :] # the randow walker returns the prob. of the aorta in the first axis at index 0
+            self.markers_4d[:, :, :, tt] = eroded_labels3D
             
-        # push the predicted segmnetation to the GUI
+        # push the predicted segmentation to the GUI
         self.update_image()
             
+        return
+
+    # ---------------------------------------------------------------              
+    # ---------------------------------------------------------------                 
+    def run_random_walker4D3D(self):
+
+        alpha_a = 0.2
+        beta_b = 0.4
+        gamma_g = 1.0 - alpha_a - beta_b
+        a, b, c = 200.0, 6.0, 500.0
+
+        for tt in range(self.t_size):
+            rw_labels3D = rw3D.random_walker(self.flowMRI_image[:, :, :, tt, :],
+                                             self.markers_4d[:, :, :, tt],
+                                             mode = 'cg_mg',
+                                             return_full_prob = True,
+                                             alpha = alpha_a,
+                                             beta = beta_b,
+                                             gamma = gamma_g,
+                                             a = a,
+                                             b = b,
+                                             c = c)
+        
+            self.rw_labels[:, :, :, tt] = rw_labels3D[0, :, :, :]
+                
+        # push the predicted segmentation to the GUI
+        self.update_image()
+        
+        return
+    
+    # ---------------------------------------------------------------              
+    # ---------------------------------------------------------------                 
+    def run_random_walker4D(self):
+
+        alpha_a = 0.2
+        beta_b = 0.4
+        gamma_g = 1.0 - alpha_a - beta_b
+        a, b, c = 200.0, 6.0, 500.0
+
+        rw_labels4D = rw4D.random_walker(self.flowMRI_image,
+                                         self.markers_4d,
+                                         mode = 'cg_mg',
+                                         return_full_prob = True,
+                                         alpha = alpha_a,
+                                         beta = beta_b,
+                                         gamma = gamma_g,
+                                         a = a,
+                                         b = b,
+                                         c = c)
+        
+        self.rw_labels = rw_labels4D[0, :, :, :, :]
+                
+        # push the predicted segmentation to the GUI
+        self.update_image()
+        
         return
     
     # ---------------------------------------------------------------  
@@ -266,8 +323,13 @@ class MainWindow():
             self.update_image()
 
         elif self.button_display_segmentation['text'] == "View hard segmentation":
-            self.button_display_segmentation.configure(text="View soft segmentation")
+            self.button_display_segmentation.configure(text="View eroded segmentation")
             self.rw_labels_view = np.round(self.rw_labels)
+            self.update_image()
+            
+        elif self.button_display_segmentation['text'] == "View eroded segmentation":
+            self.button_display_segmentation.configure(text="View soft segmentation")
+            self.rw_labels_view = np.round(self.markers_4d)
             self.update_image()
             
         return
@@ -332,7 +394,8 @@ class MainWindow():
         self.button_add_scribbles.config(state = tki.DISABLED)        
         
         # button to call the RW
-        self.button_run_rw = tki.Button(main, text="Run RW", width=20, command= lambda: self.run_random_walker3D())
+        self.button_run_rw3D = tki.Button(main, text="Run RW 3D", width=20, command= lambda: self.run_random_walker3D())
+        self.button_run_rw4D = tki.Button(main, text="Run RW 4D", width=20, command= lambda: self.run_random_walker4D3D())
         
         # misc buttons
         self.button_display_image = tki.Button(main, text="Intensity", width=20, command = lambda: self.display_mode())        
@@ -344,7 +407,8 @@ class MainWindow():
         self.button_scribble_fg.grid(row=4, column=1, padx=5, pady=5)
         self.button_scribble_bg.grid(row=5, column=1, padx=5, pady=5)
         self.button_add_scribbles.grid(row=6, column=1, padx=5,pady=5)
-        self.button_run_rw.grid(row=3, column=1, padx=5, pady=5)
+        self.button_run_rw3D.grid(row=2, column=1, padx=5, pady=5)
+        self.button_run_rw4D.grid(row=3, column=1, padx=5, pady=5)
         self.button_display_image.grid(row=8, column=2,padx=5, pady=5)
         self.button_display_segmentation.grid(row=8, column=4, padx=5, pady=5)
         self.button_save.grid(row=9, column=1, padx=5, pady=5)   
